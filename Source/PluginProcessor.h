@@ -81,6 +81,10 @@ struct EQBand
     float freqDirection = 1.0f;
     float Q = 1.0f;
     int type = 0; 
+    float prevGain = 0.0f;
+    float prevFreq = 0.0f;
+    float prevQ = 0.0f;
+    int prevType = -1;
 
     void updateCoefficients(double sampleRate)
     {

@@ -154,20 +154,24 @@ bool EchidnaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) 
 
 void EchidnaAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    // Update the EQ bands
     for (int i = 0; i < 5; ++i)
     {
         UpdateBandParameters(i);
     }
 
-    // Process audio data with the updated filter bands
-    auto block = juce::dsp::AudioBlock<float>(buffer);
-    for (int i = 0; i < 5; ++i)
+    const int totalNumInputChannels = getTotalNumInputChannels();
+    const int numSamples = buffer.getNumSamples();
+
+    for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        for (int j = 0; j < buffer.getNumChannels(); j++)
+        float* channelData = buffer.getWritePointer(channel);
+
+        for (int sample = 0; sample < numSamples; ++sample)
         {
-            auto channelBlock = block.getSingleChannelBlock(j);
-            bands[i].filter.process(juce::dsp::ProcessContextReplacing<float>(channelBlock));
+            for (int i = 0; i < 5; ++i)
+            {
+                channelData[sample] = bands[i].filter.processSample(channelData[sample]);
+            }
         }
     }
 }
@@ -199,12 +203,30 @@ void EchidnaAudioProcessor::setStateInformation (const void* data, int sizeInByt
 
 void EchidnaAudioProcessor::UpdateBandParameters(int bandIndex)
 {
+    // Fetch the current parameter values
     float currentGain = *parameters.getRawParameterValue(bandParamNames[bandIndex].gainCurrent);
     float currentFreq = *parameters.getRawParameterValue(bandParamNames[bandIndex].freqCurrent);
+    float currentQ = *parameters.getRawParameterValue(bandParamNames[bandIndex].Q);
+    int currentType = static_cast<int>(*parameters.getRawParameterValue(bandParamNames[bandIndex].type));
+    bool coefficientsChanged = false;
+
     float minGain = *parameters.getRawParameterValue(bandParamNames[bandIndex].gainMin);
     float maxGain = *parameters.getRawParameterValue(bandParamNames[bandIndex].gainMax);
     float minFreq = *parameters.getRawParameterValue(bandParamNames[bandIndex].freqMin);
     float maxFreq = *parameters.getRawParameterValue(bandParamNames[bandIndex].freqMax);
+
+    if (bands[bandIndex].prevGain != currentGain ||
+        bands[bandIndex].prevFreq != currentFreq ||
+        bands[bandIndex].prevQ != currentQ ||
+        bands[bandIndex].prevType != currentType)
+    {
+        coefficientsChanged = true;
+
+        bands[bandIndex].prevGain = currentGain;
+        bands[bandIndex].prevFreq = currentFreq;
+        bands[bandIndex].prevQ = currentQ;
+        bands[bandIndex].prevType = currentType;
+    }
 
     if ((bands[bandIndex].gainDirection > 0 && currentGain >= maxGain) ||
         (bands[bandIndex].gainDirection < 0 && currentGain <= minGain))
@@ -225,13 +247,7 @@ void EchidnaAudioProcessor::UpdateBandParameters(int bandIndex)
 
 void EchidnaAudioProcessor::parameterValueChanged(int parameterIndex, float newValue)
 {
-    /*
-    int bandIndex = parameterIndex / 12;  
-    if (bandIndex >= 0 && bandIndex < 10)
-    {
-        bands[bandIndex].needsUpdate = true;
-    }
-    */
+
 }
 
 void EchidnaAudioProcessor::parameterGestureChanged(int, bool)
