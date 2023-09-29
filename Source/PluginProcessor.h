@@ -13,22 +13,57 @@
 //==============================================================================
 /**
 */
+class ParameterSmoother
+{
+public:
+    ParameterSmoother(float initialValue = 0.0f)
+        : currentValue(initialValue), targetValue(initialValue),
+        increment(0.0f), remainingSamples(0) {}
+    
+    void setTargetValue(float target, int numSamples)
+    {
+        targetValue = target;
+        increment = (targetValue - currentValue) / numSamples;
+        remainingSamples = numSamples;
+    }
+
+    float getNextValue()
+    {
+        if (remainingSamples > 0)
+        {
+            currentValue += increment;
+            --remainingSamples;
+        }
+        else
+        {
+            currentValue = targetValue;
+        }
+        return currentValue;
+    }
+
+    float getCurrentValue() const { return currentValue; }
+
+private:
+    float currentValue, targetValue, increment;
+    int remainingSamples;
+};
 
 struct EQBandParameters
 {
     juce::String gainCurrent;
-    juce::String gainDirection;
+    juce::String gainSpeed;
     juce::String gainMin;
     juce::String gainMax;
-    juce::String gainSpeed;
+    juce::String gainDirection;
     juce::String freqCurrent;
-    juce::String freqDirection;
+    juce::String freqSpeed;
     juce::String freqMin;
     juce::String freqMax;
-    juce::String freqSpeed;
+    juce::String freqDirection;
     juce::String Q;
     juce::String type;
 };
+
 struct EQBand
 {
     juce::dsp::IIR::Filter<float> filter;
@@ -77,6 +112,7 @@ class EchidnaAudioProcessor  : public juce::AudioProcessor, public juce::AudioPr
                              , public juce::AudioProcessorARAExtension
                             #endif
 {
+
 public:
     //==============================================================================
     EchidnaAudioProcessor();
@@ -118,9 +154,12 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState& getValueTreeState() { return parameters; }
+    static const std::array<EQBandParameters, 5> bandParamNames;
+    void UpdateBandParameters(int bandIndex);
 private:
-    EQBand bands[10];
-    EQBandParameters bandParamNames[10];
+    EQBand bands[5];
+    std::array<ParameterSmoother, 5> gainSmoothers;
+    std::array<ParameterSmoother, 5> freqSmoothers;
     
     juce::AudioProcessorValueTreeState parameters;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

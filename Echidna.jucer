@@ -18,7 +18,8 @@
   <EXPORTFORMATS>
     <VS2022 targetFolder="Builds/VisualStudio2022">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="Echidna"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="Echidna" enablePluginBinaryCopyStep="1"
+                       vst3BinaryLocation="C:\Program Files\Common Files\VST3"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="Echidna"/>
       </CONFIGURATIONS>
       <MODULEPATHS>

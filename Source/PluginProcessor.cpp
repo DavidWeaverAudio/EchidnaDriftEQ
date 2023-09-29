@@ -9,6 +9,28 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+const std::array<EQBandParameters, 5> EchidnaAudioProcessor::bandParamNames = [] {
+    std::array<EQBandParameters, 5> names;
+    for (int i = 0; i < 5; ++i)
+    {
+        names[i] = {
+            "BAND" + juce::String(i + 1) + "_GAIN",
+            "BAND" + juce::String(i + 1) + "_GAIN_SPEED",
+            "BAND" + juce::String(i + 1) + "_GAIN_MIN",
+            "BAND" + juce::String(i + 1) + "_GAIN_MAX",
+            "BAND" + juce::String(i + 1) + "_GAIN_DIRECTION",
+            "BAND" + juce::String(i + 1) + "_FREQ",
+            "BAND" + juce::String(i + 1) + "_FREQ_SPEED",
+            "BAND" + juce::String(i + 1) + "_FREQ_MIN",
+            "BAND" + juce::String(i + 1) + "_FREQ_MAX",
+            "BAND" + juce::String(i + 1) + "_FREQ_DIRECTION",
+            "BAND" + juce::String(i + 1) + "_Q",
+            "BAND" + juce::String(i + 1) + "_TYPE"
+        };
+    }
+    return names;
+}();
+
 //==============================================================================
 EchidnaAudioProcessor::EchidnaAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -24,72 +46,11 @@ EchidnaAudioProcessor::EchidnaAudioProcessor()
 
 #endif
 {
-    for (int i = 0; i < 10; ++i)
-    {
-        bandParamNames[i] = {
-            "BAND" + juce::String(i + 1) + "_GAIN",
-            "BAND" + juce::String(i + 1) + "_GAIN_SPEED",
-            "BAND" + juce::String(i + 1) + "_GAIN_MIN",
-            "BAND" + juce::String(i + 1) + "_GAIN_MAX",
-            "BAND" + juce::String(i + 1) + "_GAIN_DIRECTION",
-            "BAND" + juce::String(i + 1) + "_FREQ",
-            "BAND" + juce::String(i + 1) + "_FREQ_SPEED",
-            "BAND" + juce::String(i + 1) + "_FREQ_MIN",
-            "BAND" + juce::String(i + 1) + "_FREQ_MAX",
-            "BAND" + juce::String(i + 1) + "_FREQ_DIRECTION",
-            "BAND" + juce::String(i + 1) + "_Q",
-            "BAND" + juce::String(i + 1) + "_TYPE"
-        };
-    }
-    for (int i = 0; i < 10; ++i)
-    {
-        auto wa_addListener = [this](const juce::String& paramName) {
-            auto* param = parameters.getParameter(paramName);
-            jassert(param != nullptr && "Parameter doesn't exist!");
-            if (param)
-                param->addListener(this);
-        };
-
-        wa_addListener(bandParamNames[i].gainCurrent);
-        wa_addListener(bandParamNames[i].gainSpeed);
-        wa_addListener(bandParamNames[i].gainMin);
-        wa_addListener(bandParamNames[i].gainMax);
-        wa_addListener(bandParamNames[i].gainDirection);
-        wa_addListener(bandParamNames[i].freqCurrent);
-        wa_addListener(bandParamNames[i].freqSpeed);
-        wa_addListener(bandParamNames[i].freqMin);
-        wa_addListener(bandParamNames[i].freqMax);
-        wa_addListener(bandParamNames[i].freqDirection);
-        wa_addListener(bandParamNames[i].Q);
-        wa_addListener(bandParamNames[i].type);
-    }
+    
 }
 
 EchidnaAudioProcessor::~EchidnaAudioProcessor()
 {
-    for (int i = 0; i < 10; ++i)
-    {
-        auto wa_removeListener = [this](const juce::String& paramName) {
-            auto* param = parameters.getParameter(paramName);
-            jassert(param != nullptr && "Parameter doesn't exist!");
-
-            if (param)
-                param->removeListener(this);
-        };
-
-        wa_removeListener(bandParamNames[i].gainCurrent);
-        wa_removeListener(bandParamNames[i].gainSpeed);
-        wa_removeListener(bandParamNames[i].gainMin);
-        wa_removeListener(bandParamNames[i].gainMax);
-        wa_removeListener(bandParamNames[i].gainDirection);
-        wa_removeListener(bandParamNames[i].freqCurrent);
-        wa_removeListener(bandParamNames[i].freqSpeed);
-        wa_removeListener(bandParamNames[i].freqMin);
-        wa_removeListener(bandParamNames[i].freqMax);
-        wa_removeListener(bandParamNames[i].freqDirection);
-        wa_removeListener(bandParamNames[i].Q);
-        wa_removeListener(bandParamNames[i].type);
-    }
 }
 
 //==============================================================================
@@ -157,10 +118,12 @@ void EchidnaAudioProcessor::changeProgramName (int index, const juce::String& ne
 //==============================================================================
 void EchidnaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    for (int i = 0; i < 10; ++i)
+    
+    for (int i = 0; i < 5; ++i)
     {
        bands[i].filter.reset();
     }
+    
 }
 
 void EchidnaAudioProcessor::releaseResources()
@@ -189,56 +152,23 @@ bool EchidnaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) 
 }
 #endif
 
-void EchidnaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void EchidnaAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    for (int i = 0; i < 10; ++i)
+    // Update the EQ bands
+    for (int i = 0; i < 5; ++i)
     {
-        float currentGain = *parameters.getRawParameterValue(bandParamNames[i].gainCurrent);
-        float minGain = *parameters.getRawParameterValue(bandParamNames[i].gainMin);
-        float maxGain = *parameters.getRawParameterValue(bandParamNames[i].gainMax);
-        float speed = *parameters.getRawParameterValue(bandParamNames[i].gainSpeed);
-        
-        if ((bands[i].gainDirection > 0 && currentGain >= maxGain) ||
-            (bands[i].gainDirection < 0 && currentGain <= minGain))
+        UpdateBandParameters(i);
+    }
+
+    // Process audio data with the updated filter bands
+    auto block = juce::dsp::AudioBlock<float>(buffer);
+    for (int i = 0; i < 5; ++i)
+    {
+        for (int j = 0; j < buffer.getNumChannels(); j++)
         {
-            bands[i].gainDirection = -bands[i].gainDirection; 
+            auto channelBlock = block.getSingleChannelBlock(j);
+            bands[i].filter.process(juce::dsp::ProcessContextReplacing<float>(channelBlock));
         }
-
-        currentGain += bands[i].gainDirection * speed;
-        parameters.getParameter(bandParamNames[i].gainCurrent)->setValueNotifyingHost(currentGain);
-
-        float currentFreq = *parameters.getRawParameterValue(bandParamNames[i].freqCurrent);
-        float minFreq = *parameters.getRawParameterValue(bandParamNames[i].freqMin);
-        float maxFreq = *parameters.getRawParameterValue(bandParamNames[i].freqMax);
-        float freqSpeed = *parameters.getRawParameterValue(bandParamNames[i].freqSpeed);
-
-        if ((bands[i].freqDirection > 0 && currentFreq >= maxFreq) ||
-            (bands[i].freqDirection < 0 && currentGain <= minFreq))
-        {
-            bands[i].freqDirection = -bands[i].freqDirection;
-        }
-
-        currentFreq += bands[i].freqDirection * freqSpeed;
-        parameters.getParameter(bandParamNames[i].freqCurrent)->setValueNotifyingHost(currentFreq);
-
-        if (bands[i].needsUpdate)
-        {
-            bands[i].gainCurrent = *parameters.getRawParameterValue(bandParamNames[i].gainCurrent);
-            bands[i].gainSpeed = *parameters.getRawParameterValue(bandParamNames[i].gainSpeed);
-            bands[i].gainMin = *parameters.getRawParameterValue(bandParamNames[i].gainMin);
-            bands[i].gainMax = *parameters.getRawParameterValue(bandParamNames[i].gainMax);
-            bands[i].gainDirection = *parameters.getRawParameterValue(bandParamNames[i].gainDirection);
-            bands[i].freqCurrent = *parameters.getRawParameterValue(bandParamNames[i].freqCurrent);
-            bands[i].freqSpeed = *parameters.getRawParameterValue(bandParamNames[i].freqSpeed);
-            bands[i].freqMin = *parameters.getRawParameterValue(bandParamNames[i].freqMin);
-            bands[i].freqMax = *parameters.getRawParameterValue(bandParamNames[i].freqMax);
-            bands[i].freqDirection = *parameters.getRawParameterValue(bandParamNames[i].freqDirection);
-            bands[i].Q = *parameters.getRawParameterValue(bandParamNames[i].Q);
-            bands[i].type = (int)*parameters.getRawParameterValue(bandParamNames[i].type);
-            bands[i].updateCoefficients(getSampleRate());
-        }
-
-        bands[i].filter.process(juce::dsp::ProcessContextReplacing<float>(juce::dsp::AudioBlock<float>(buffer)));
     }
 }
 
@@ -267,13 +197,41 @@ void EchidnaAudioProcessor::setStateInformation (const void* data, int sizeInByt
     // whose contents will have been created by the getStateInformation() call.
 }
 
+void EchidnaAudioProcessor::UpdateBandParameters(int bandIndex)
+{
+    float currentGain = *parameters.getRawParameterValue(bandParamNames[bandIndex].gainCurrent);
+    float currentFreq = *parameters.getRawParameterValue(bandParamNames[bandIndex].freqCurrent);
+    float minGain = *parameters.getRawParameterValue(bandParamNames[bandIndex].gainMin);
+    float maxGain = *parameters.getRawParameterValue(bandParamNames[bandIndex].gainMax);
+    float minFreq = *parameters.getRawParameterValue(bandParamNames[bandIndex].freqMin);
+    float maxFreq = *parameters.getRawParameterValue(bandParamNames[bandIndex].freqMax);
+
+    if ((bands[bandIndex].gainDirection > 0 && currentGain >= maxGain) ||
+        (bands[bandIndex].gainDirection < 0 && currentGain <= minGain))
+    {
+        bands[bandIndex].gainDirection = -bands[bandIndex].gainDirection;
+    }
+    if ((bands[bandIndex].freqDirection > 0 && currentFreq >= maxFreq) ||
+        (bands[bandIndex].freqDirection < 0 && currentFreq <= minFreq))
+    {
+        bands[bandIndex].freqDirection = -bands[bandIndex].freqDirection;
+    }
+
+    bands[bandIndex].gainCurrent = currentGain;
+    bands[bandIndex].freqCurrent = currentFreq;
+
+    bands[bandIndex].updateCoefficients(getSampleRate());
+}
+
 void EchidnaAudioProcessor::parameterValueChanged(int parameterIndex, float newValue)
 {
+    /*
     int bandIndex = parameterIndex / 12;  
     if (bandIndex >= 0 && bandIndex < 10)
     {
         bands[bandIndex].needsUpdate = true;
     }
+    */
 }
 
 void EchidnaAudioProcessor::parameterGestureChanged(int, bool)
@@ -282,7 +240,6 @@ void EchidnaAudioProcessor::parameterGestureChanged(int, bool)
 
 juce::AudioProcessorValueTreeState::ParameterLayout EchidnaAudioProcessor::createParameterLayout()
 {
-    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
     /*  
         "BAND1GAIN", 
         "BAND1FREQ", 
@@ -295,18 +252,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout EchidnaAudioProcessor::creat
         "BAND1FREQ_MAX", 
         "BAND1FREQ_SPEED",
         */
-    for (int i = 0; i < 10; ++i) 
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+    
+    for (int i = 0; i < 5; ++i) 
     {
-        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainCurrent, "Band " + juce::String(i) + " Gain", 0.0f, 2.0f, 1.0f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainCurrent, "Band " + juce::String(i) + " Gain", -10.0f, 10.0f, 0.1f));
         params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].freqCurrent, "Band " + juce::String(i) + " Frequency", 20.0f, 20000.0f, 1000.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].Q, "Band " + juce::String(i) + " Q", 0.1f, 10.0f, 1.0f));
         params.push_back(std::make_unique<juce::AudioParameterChoice>(bandParamNames[i].type, "Band " + juce::String(i) + " Type", juce::StringArray{"Bell", "Low Shelf", "High Shelf", "Low Pass", "High Pass"}, 0));
-        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainMin, "Band " + juce::String(i) + " Gain Min", 0.0f, 2.0f, 0.0f));
-        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainMax, "Band " + juce::String(i) + " Gain Max", 0.0f, 2.0f, 2.0f));
-        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainSpeed, "Band " + juce::String(i) + " Gain Speed", 0.001f, 0.1f, 0.01f)); 
+        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainMin, "Band " + juce::String(i) + " Gain Min", 0.0f, 2.0f, 0.1f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainMax, "Band " + juce::String(i) + " Gain Max", 0.0f, 2.0f, 0.1f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainSpeed, "Band " + juce::String(i) + " Gain Speed", 0.001f, 3.0f, 0.01f)); 
         params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].freqMin, "Band " + juce::String(i) + " Freq Min", 20.0f, 2000.0f, 200.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].freqMax, "Band " + juce::String(i) + " Freq Max", 20.0f, 2000.0f, 200.0f));
-        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].freqSpeed, "Band " + juce::String(i) + "Freq Speed", 0.001f, 0.1f, 0.01f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].freqSpeed, "Band " + juce::String(i) + "Freq Speed", 0.0001f, 1.0f, 0.001f));
         params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].gainDirection, "Band " + juce::String(i) + "Gain Dir", -1.0f, 1.0f, 0.f));
         params.push_back(std::make_unique<juce::AudioParameterFloat> (bandParamNames[i].freqDirection, "Band " + juce::String(i) + "Freq Dir", -1.0f, 1.0f, 0.f));
     }
